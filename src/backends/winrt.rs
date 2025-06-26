@@ -8,12 +8,11 @@ use lazy_static::lazy_static;
 use log::{info, trace};
 use oxilangtag::LanguageTag;
 use windows::{
-    Foundation::TypedEventHandler,
-    Media::{
+    core::HSTRING, Foundation::TypedEventHandler, Media::{
         Core::MediaSource,
         Playback::{MediaPlayer, MediaPlayerAudioCategory},
         SpeechSynthesis::{SpeechSynthesizer, VoiceGender, VoiceInformation},
-    },
+    }, Storage::Streams::DataReader
 };
 
 use crate::{Backend, BackendId, Error, Features, Gender, UtteranceId, Voice, CALLBACKS};
@@ -208,6 +207,32 @@ impl Backend for WinRt {
             }
         }
         Ok(Some(utterance_id))
+    }
+
+    fn synthesize(
+        &mut self,
+        text: &str,
+        interrupt: bool,
+    ) -> std::result::Result<(Vec<u8>, HSTRING), Error> {
+        self.synth.Options()?.SetSpeakingRate(self.rate.into())?;
+        self.synth.Options()?.SetAudioPitch(self.pitch.into())?;
+        self.synth.Options()?.SetAudioVolume(self.volume.into())?;
+        self.synth.SetVoice(&self.voice)?;
+        let stream = self
+            .synth
+            .SynthesizeTextToStreamAsync(&text.into())?
+            .get()?;
+        let content_type = stream.ContentType()?;
+        
+        let size = stream.Size()?;
+
+        let data_reader = DataReader::CreateDataReader(&stream.GetInputStreamAt(0)?)?;
+
+        let mut bytes = vec![0; size as usize];
+        data_reader.LoadAsync(size as u32)?.get()?;
+        data_reader.ReadBytes(&mut bytes)?;
+
+        Ok((bytes, content_type))
     }
 
     fn stop(&mut self) -> std::result::Result<(), Error> {

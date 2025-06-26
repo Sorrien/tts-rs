@@ -17,6 +17,8 @@ use std::rc::Rc;
 use std::string::FromUtf16Error;
 use std::sync::Mutex;
 use std::{boxed::Box, sync::RwLock};
+#[cfg(windows)]
+use windows::core::HSTRING;
 
 use dyn_clonable::*;
 use lazy_static::lazy_static;
@@ -192,6 +194,7 @@ pub trait Backend: Clone {
     fn id(&self) -> Option<BackendId>;
     fn supported_features(&self) -> Features;
     fn speak(&mut self, text: &str, interrupt: bool) -> Result<Option<UtteranceId>, Error>;
+    fn synthesize(&mut self, text: &str, interrupt: bool) -> Result<(Vec<u8>, HSTRING), Error>;
     fn stop(&mut self) -> Result<(), Error>;
     fn min_rate(&self) -> f32;
     fn max_rate(&self) -> f32;
@@ -334,6 +337,11 @@ impl Tts {
             .write()
             .unwrap()
             .speak(text.into().as_str(), interrupt)
+    }
+
+    fn synthesize(&mut self, text: &str, interrupt: bool) -> Result<Vec<u8>, Error> {
+        let (bytes, _) = self.0.write().unwrap().synthesize(text, interrupt)?;
+        Ok(bytes)
     }
 
     /// Stops current speech.
