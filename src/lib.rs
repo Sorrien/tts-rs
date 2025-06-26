@@ -339,7 +339,7 @@ impl Tts {
             .speak(text.into().as_str(), interrupt)
     }
 
-    fn synthesize(&mut self, text: &str, interrupt: bool) -> Result<Vec<u8>, Error> {
+    pub fn synthesize(&mut self, text: &str, interrupt: bool) -> Result<Vec<u8>, Error> {
         let (bytes, _) = self.0.write().unwrap().synthesize(text, interrupt)?;
         Ok(bytes)
     }
