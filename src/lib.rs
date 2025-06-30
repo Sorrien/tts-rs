@@ -215,6 +215,7 @@ pub trait Backend: Clone {
     fn voices(&self) -> Result<Vec<Voice>, Error>;
     fn voice(&self) -> Result<Option<Voice>, Error>;
     fn set_voice(&mut self, voice: &Voice) -> Result<(), Error>;
+    fn set_playback_device(&mut self, name: &str) -> Result<(), Error>;
 }
 
 #[derive(Default)]
@@ -527,6 +528,10 @@ impl Tts {
         } else {
             Err(Error::UnsupportedFeature)
         }
+    }
+
+    pub fn set_playback_device(&mut self, name: &str) -> Result<(), Error> {
+        self.0.write().unwrap().set_playback_device(name)
     }
 
     /// Called when this speech synthesizer begins speaking an utterance.

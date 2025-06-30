@@ -8,11 +8,15 @@ use lazy_static::lazy_static;
 use log::{info, trace};
 use oxilangtag::LanguageTag;
 use windows::{
-    core::HSTRING, Foundation::TypedEventHandler, Media::{
+    core::HSTRING,
+    Devices::Enumeration::DeviceInformation,
+    Foundation::TypedEventHandler,
+    Media::{
         Core::MediaSource,
         Playback::{MediaPlayer, MediaPlayerAudioCategory},
         SpeechSynthesis::{SpeechSynthesizer, VoiceGender, VoiceInformation},
-    }, Storage::Streams::DataReader
+    },
+    Storage::Streams::DataReader,
 };
 
 use crate::{Backend, BackendId, Error, Features, Gender, UtteranceId, Voice, CALLBACKS};
@@ -67,6 +71,7 @@ impl WinRt {
         let player = MediaPlayer::new()?;
         player.SetRealTimePlayback(true)?;
         player.SetAudioCategory(MediaPlayerAudioCategory::Speech)?;
+
         let mut backend_id = NEXT_BACKEND_ID.lock().unwrap();
         let bid = BackendId::WinRt(*backend_id);
         *backend_id += 1;
@@ -223,7 +228,7 @@ impl Backend for WinRt {
             .SynthesizeTextToStreamAsync(&text.into())?
             .get()?;
         let content_type = stream.ContentType()?;
-        
+
         let size = stream.Size()?;
 
         let data_reader = DataReader::CreateDataReader(&stream.GetInputStreamAt(0)?)?;
@@ -352,6 +357,22 @@ impl Backend for WinRt {
             }
         }
         Err(Error::OperationFailed)
+    }
+
+    fn set_playback_device(&mut self, name: &str) -> Result<(), Error> {
+        let device_infos = DeviceInformation::FindAllAsync()?.get()?;
+        let di_size = device_infos.Size()?;
+        let mut device_info_vec = vec![None; di_size as usize];
+        device_infos.GetMany(0, &mut device_info_vec)?;
+        for device_info in device_info_vec {
+            if let Some(device_info) = device_info {
+                if device_info.Name()?.to_string_lossy() == String::from(name) {
+                    self.player.SetAudioDevice(&device_info)?;
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
